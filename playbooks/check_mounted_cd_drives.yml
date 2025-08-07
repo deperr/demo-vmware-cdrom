@@ -1,0 +1,152 @@
+---
+- name: Check VMware VMs with mounted CD-ROM drives
+  hosts: localhost
+  gather_facts: true
+  
+  module_defaults:
+    group/vmware.vmware_rest.all:
+      vcenter_hostname: "{{ vcenter_hostname }}"
+      vcenter_username: "{{ vcenter_username }}"
+      vcenter_password: "{{ vcenter_password }}"
+      vcenter_validate_certs: "{{ vcenter_validate_certs }}"
+  
+  vars:
+    # Report storage
+    vm_cdrom_report: []
+    report_timestamp: "{{ ansible_date_time.iso8601 }}"
+    
+  tasks:
+    - name: Create reports directory
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports"
+        state: directory
+        mode: '0755'
+
+    - name: Debug connection parameters
+      when: debug_mode | default(false)
+      ansible.builtin.debug:
+        msg:
+          - "Connecting to vCenter: {{ vcenter_hostname }}"
+          - "Using collection: {{ vmware_collection_namespace }}"
+          - "Validate certs: {{ vcenter_validate_certs }}"
+
+    - name: Gather VM information from vSphere using REST API
+      register: vm_facts
+      delegate_to: localhost
+      vmware.vmware_rest.vcenter_vm_info:
+
+    - name: Filter VMs by power state and exclude templates
+      ansible.builtin.set_fact:
+        filtered_vms: >-
+          {{
+            vm_facts.value | selectattr('power_state', 'in', vm_search_filters.power_states)
+            if vm_search_filters.power_states | length > 0
+            else vm_facts.value
+          }}
+
+    - name: Get detailed hardware information for each VM
+      register: vm_hardware_info
+      loop: "{{ filtered_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+      failed_when: false
+      delegate_to: localhost
+      vmware.vmware_rest.vcenter_vm_hardware_info:
+        vm: "{{ item.vm }}"
+
+    - name: Get CD-ROM device information for each VM
+      register: vm_cdrom_info
+      loop: "{{ filtered_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+      failed_when: false
+      delegate_to: localhost
+      vmware.vmware_rest.vcenter_vm_hardware_cdrom_info:
+        vm: "{{ item.vm }}"
+
+    - name: Process CD-ROM device information
+      loop: "{{ vm_cdrom_info.results }}"
+      loop_control:
+        label: "{{ item.item.name if not item.failed else 'Failed: ' + item.item.name }}"
+      when: not item.failed
+      ansible.builtin.set_fact:
+        vm_cdrom_report: >-
+          {{
+            vm_cdrom_report + [
+              {
+                'vm_name': item.item.name,
+                'vm_id': item.item.vm,
+                'power_state': item.item.power_state,
+                'cdrom_devices': item.value | default([]),
+                'cdrom_count': item.value | default([]) | length,
+                'has_mounted_iso': (item.value | default([]) | selectattr('backing', 'defined') | selectattr('backing.iso_file', 'defined') | list | length) > 0
+              }
+            ]
+          }}
+
+    - name: Filter VMs with CD-ROM devices
+      ansible.builtin.set_fact:
+        vms_with_cdroms: "{{ vm_cdrom_report | selectattr('cdrom_count', '>', 0) | list }}"
+
+    - name: Display summary statistics
+      ansible.builtin.debug:
+        msg:
+          - "=== VMware CD-ROM Drive Report ==="
+          - "Report generated: {{ report_timestamp }}"
+          - "Total VMs scanned: {{ vm_cdrom_report | length }}"
+          - "VMs with CD-ROM devices: {{ vms_with_cdroms | length }}"
+          - "VMs with mounted ISOs: {{ vms_with_cdroms | selectattr('has_mounted_iso', 'equalto', true) | list | length }}"
+
+    - name: Display detailed VM CD-ROM information
+      loop: "{{ vms_with_cdroms }}"
+      loop_control:
+        label: "{{ item.vm_name }}"
+      when: cdrom_report_config.include_device_details
+      ansible.builtin.debug:
+        msg:
+          - "VM: {{ item.vm_name }}"
+          - "  VM ID: {{ item.vm_id }}"
+          - "  Power State: {{ item.power_state }}"
+          - "  CD-ROM Devices: {{ item.cdrom_count }}"
+          - "  Has Mounted ISO: {{ item.has_mounted_iso }}"
+          - "  Device Details: {{ item.cdrom_devices | length }} device(s) found"
+          - "  ---"
+
+    - name: Generate table format report
+      vars:
+        report_data: "{{ vms_with_cdroms }}"
+        report_meta:
+          timestamp: "{{ report_timestamp }}"
+          total_vms: "{{ vm_cdrom_report | length }}"
+          vms_with_cdroms: "{{ vms_with_cdroms | length }}"
+          vms_with_mounted_isos: "{{ vms_with_cdroms | selectattr('has_mounted_iso', 'equalto', true) | list | length }}"
+      delegate_to: localhost
+      when: cdrom_report_config.output_format == "table"
+      ansible.builtin.template:
+        src: cdrom_report_table.j2
+        dest: "{{ cdrom_report_config.report_file | default(playbook_dir + '/../reports/vmware_cdrom_report.txt') }}"
+
+    - name: Generate JSON format report
+      delegate_to: localhost
+      when: cdrom_report_config.output_format == "json"
+      ansible.builtin.copy:
+        content: |
+          {
+            "report_metadata": {
+              "generated_at": "{{ report_timestamp }}",
+              "total_vms_scanned": {{ vm_cdrom_report | length }},
+              "vms_with_cdroms": {{ vms_with_cdroms | length }},
+              "vms_with_mounted_isos": {{ vms_with_cdroms | selectattr('has_mounted_iso', 'equalto', true) | list | length }}
+            },
+            "vm_details": {{ vms_with_cdroms | to_nice_json }}
+          }
+        dest: "{{ cdrom_report_config.report_file | regex_replace('\\.(txt|yaml)$', '.json') }}"
+
+    - name: Display report file location
+      when: cdrom_report_config.timestamp_reports
+      ansible.builtin.debug:
+        msg:
+          - "Report saved to: {{ cdrom_report_config.report_file | default(playbook_dir + '/../reports/vmware_cdrom_report.txt') }}"
+          - "Use this file for further analysis or reporting purposes."

@@ -1,0 +1,83 @@
+VMware CD-ROM Removal Report
+===========================
+Generated: {{ report_meta.timestamp }}
+vCenter: {{ vcenter_hostname }}
+Mode: {{ report_meta.mode | upper }}
+
+Summary:
+--------
+Total VMs Scanned: {{ report_meta.total_vms_scanned }}
+VMs with Mounted ISOs: {{ report_meta.vms_with_mounted_isos }}
+{% if report_meta.mode == 'live_removal' %}
+Successful Removals: {{ report_meta.successful_removals }}
+Failed Removals: {{ report_meta.failed_removals }}
+{% endif %}
+
+{% if report_meta.mode == 'dry_run' %}
+DRY RUN Results - No Changes Made:
+----------------------------------
+{% if dry_run_data | length > 0 %}
+The following VMs have mounted CD-ROM ISOs that would be removed:
+
+{% for vm in dry_run_data %}
+VM: {{ vm.vm_name }} ({{ vm.vm_id }})
+  Power State: {{ vm.power_state }}
+  Mounted ISO Count: {{ vm.mounted_iso_count }}
+  ISO Files to Remove:
+{% for cdrom in vm.mounted_cdroms %}
+    - Device: {{ cdrom.label | default('CD/DVD Drive') }}
+      ISO File: {{ cdrom.backing.iso_file }}
+      Device ID: {{ cdrom.cdrom }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+No VMs found with mounted CD-ROM ISOs.
+{% endif %}
+
+{% else %}
+Live Removal Results:
+--------------------
+{% if report_data | length > 0 %}
+{% for removal in report_data %}
+VM: {{ removal.vm_name }} ({{ removal.vm_id }})
+  Device: {{ removal.device_label }}
+  Previous ISO: {{ removal.previous_iso }}
+  Status: {{ 'SUCCESS' if removal.removal_successful else 'FAILED' }}
+{% if not removal.removal_successful %}
+  Error: {{ removal.error_message }}
+{% endif %}
+  Timestamp: {{ removal.timestamp }}
+
+{% endfor %}
+
+{% if report_data | selectattr('removal_successful', 'equalto', false) | list | length > 0 %}
+Failed Removals Summary:
+-----------------------
+{% for failure in report_data | selectattr('removal_successful', 'equalto', false) | list %}
+- {{ failure.vm_name }}: {{ failure.error_message }}
+{% endfor %}
+{% endif %}
+
+{% else %}
+No removal operations were performed.
+{% endif %}
+{% endif %}
+
+{% if report_meta.mode == 'live_removal' %}
+Post-Removal Notes:
+------------------
+- CD-ROM hardware devices remain attached to VMs
+- ISO files have been disconnected from CD-ROM drives
+- VMs may require reboot to recognize changes
+- Original ISO files remain on storage (not deleted)
+{% else %}
+Next Steps:
+----------
+- Review the above list of VMs with mounted ISOs
+- Set dry_run: false in configuration to perform actual removal
+- Ensure VMs are in appropriate power state for changes
+- Consider VM downtime requirements
+{% endif %}
+
+Report completed at {{ report_meta.timestamp }}

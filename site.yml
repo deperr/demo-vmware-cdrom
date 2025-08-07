@@ -1,0 +1,11 @@
+---
+# Main site playbook for VMware CD-ROM management
+# Choose the appropriate playbook based on your requirements:
+
+# Check for mounted CD-ROM drives (read-only operation)
+- import_playbook: playbooks/check_mounted_cd_drives.yml
+  when: operation | default('check') == 'check'
+
+# Remove mounted CD-ROM drives (destructive operation)
+- import_playbook: playbooks/remove_mounted_cd_drives.yml
+  when: operation | default('check') == 'remove'

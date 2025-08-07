@@ -1,0 +1,36 @@
+VMware CD-ROM Drive Report
+==========================
+Generated: {{ report_meta.timestamp }}
+vCenter: {{ vcenter_hostname }}
+
+Summary:
+--------
+Total VMs Scanned: {{ report_meta.total_vms }}
+VMs with CD-ROM devices: {{ report_meta.vms_with_cdroms }}
+VMs with mounted ISOs: {{ report_meta.vms_with_mounted_isos }}
+
+{% if report_data | length > 0 %}
+Detailed Results:
+-----------------
+{% for vm in report_data %}
+VM Name: {{ vm.vm_name }}
+  VM ID: {{ vm.vm_id }}
+  Power State: {{ vm.power_state }}
+  CD-ROM Devices: {{ vm.cdrom_count }}
+  Has Mounted ISO: {{ 'Yes' if vm.has_mounted_iso else 'No' }}
+{% if vm.cdrom_devices | length > 0 %}
+  Device Details: {{ vm.cdrom_devices | length }} device(s) found
+{% for device in vm.cdrom_devices %}
+    - Device {{ loop.index }}: {{ device.label | default('CD/DVD Drive') }}
+{% if device.backing is defined and device.backing.iso_file is defined %}
+      ISO File: {{ device.backing.iso_file }}
+{% endif %}
+{% endfor %}
+{% endif %}
+  
+{% endfor %}
+{% else %}
+No VMs found with CD-ROM devices attached.
+{% endif %}
+
+Report completed at {{ report_meta.timestamp }}

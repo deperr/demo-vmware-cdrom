@@ -1,0 +1,26 @@
+# System packages required for VMware automation
+
+# Development tools for compiling Python extensions
+gcc [compile]
+gcc-c++ [compile]
+
+# Python development headers
+python3-devel [compile]
+
+# SSL/TLS development libraries
+openssl-devel [compile]
+
+# XML processing libraries (required by pyvmomi)
+libxml2-devel [compile]
+libxslt-devel [compile]
+
+# CA certificates for SSL verification
+ca-certificates
+
+# Timezone data
+tzdata
+
+# Core utilities
+coreutils
+findutils
+git

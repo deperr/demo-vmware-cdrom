@@ -1,0 +1,29 @@
+# Development tools for compiling Python extensions
+gcc [compile]
+gcc-c++ [compile]
+
+# Python development headers
+python3-devel [compile]
+
+# SSL/TLS development libraries
+openssl-devel [compile]
+
+# XML processing libraries
+libxml2-devel [compile]
+libxslt-devel [compile]
+
+# LDAP libraries (if integrating with LDAP authentication)
+openldap-devel [compile]
+
+# Kerberos libraries (if using Kerberos authentication)
+krb5-devel [compile]
+
+# CA certificates for SSL verification
+ca-certificates
+
+# Timezone data
+tzdata
+
+# Core utilities
+coreutils
+findutils

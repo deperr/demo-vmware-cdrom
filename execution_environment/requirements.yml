@@ -1,0 +1,15 @@
+collections:
+  # VMWare automation
+  - name: vmware.vmware
+  - name: vmware.vmware_rest
+
+  - name: ansible.builtin
+
+# Linux automation
+  - name: ansible.posix
+  - name: ansible.utils
+  - name: containers.podman
+
+# Windows automation
+  - name: microsoft.ad
+  - name: ansible.windows

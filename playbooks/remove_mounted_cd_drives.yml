@@ -1,0 +1,263 @@
+---
+- name: Remove mounted CD-ROM drives from VMware VMs
+  hosts: localhost
+  gather_facts: true
+  
+  module_defaults:
+    group/vmware.vmware_rest.all:
+      vcenter_hostname: "{{ vcenter_hostname }}"
+      vcenter_username: "{{ vcenter_username }}"
+      vcenter_password: "{{ vcenter_password }}"
+      vcenter_validate_certs: "{{ vcenter_validate_certs }}"
+  
+  vars:
+    # Report storage for tracking changes
+    vm_cdrom_report: []
+    removal_report: []
+    report_timestamp: "{{ ansible_date_time.iso8601 }}"
+    
+    # Safety controls
+    dry_run_mode: "{{ cdrom_removal_config.dry_run | default(true) }}"
+    confirm_removal: "{{ cdrom_removal_config.confirm_removal | default(false) }}"
+    
+  tasks:
+    - name: Create reports directory
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports"
+        state: directory
+        mode: '0755'
+
+    - name: Debug removal parameters
+      when: debug_mode | default(false)
+      ansible.builtin.debug:
+        msg:
+          - "=== CD-ROM Removal Configuration ==="
+          - "Connecting to vCenter: {{ vcenter_hostname }}"
+          - "Dry run mode: {{ dry_run_mode }}"
+          - "Confirmation required: {{ confirm_removal }}"
+          - "Validate certs: {{ vcenter_validate_certs }}"
+
+    - name: Safety check - Confirm removal intent
+      when: 
+        - not dry_run_mode
+        - confirm_removal
+      ansible.builtin.pause:
+        prompt: |
+          WARNING: This will remove mounted CD-ROM ISOs from virtual machines!
+          
+          This action will:
+          - Disconnect mounted ISO files from VM CD-ROM drives
+          - Leave CD-ROM hardware devices attached to VMs
+          - Generate a detailed removal report
+          
+          Do you want to continue? (yes/no)
+      register: user_confirmation
+
+    - name: Abort if user declined confirmation
+      when: 
+        - not dry_run_mode
+        - confirm_removal
+        - user_confirmation.user_input | lower != 'yes'
+      ansible.builtin.fail:
+        msg: "CD-ROM removal aborted by user"
+
+    - name: Gather VM information from vSphere using REST API
+      register: vm_facts
+      delegate_to: localhost
+      vmware.vmware_rest.vcenter_vm_info:
+
+    - name: Filter VMs by power state and exclude templates
+      ansible.builtin.set_fact:
+        filtered_vms: >-
+          {{
+            vm_facts.value | selectattr('power_state', 'in', vm_search_filters.power_states)
+            if vm_search_filters.power_states | length > 0
+            else vm_facts.value
+          }}
+
+    - name: Get CD-ROM device information for each VM
+      register: vm_cdrom_info
+      loop: "{{ filtered_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+      failed_when: false
+      delegate_to: localhost
+      vmware.vmware_rest.vcenter_vm_hardware_cdrom_info:
+        vm: "{{ item.vm }}"
+
+    - name: Identify VMs with mounted ISOs
+      loop: "{{ vm_cdrom_info.results }}"
+      loop_control:
+        label: "{{ item.item.name if not item.failed else 'Failed: ' + item.item.name }}"
+      when: not item.failed
+      ansible.builtin.set_fact:
+        vm_cdrom_report: >-
+          {{
+            vm_cdrom_report + [
+              {
+                'vm_name': item.item.name,
+                'vm_id': item.item.vm,
+                'power_state': item.item.power_state,
+                'cdrom_devices': item.value | default([]),
+                'mounted_cdroms': item.value | default([]) | selectattr('backing', 'defined') | selectattr('backing.iso_file', 'defined') | list,
+                'cdrom_count': item.value | default([]) | length,
+                'mounted_iso_count': (item.value | default([]) | selectattr('backing', 'defined') | selectattr('backing.iso_file', 'defined') | list | length)
+              }
+            ]
+          }}
+
+    - name: Filter VMs with mounted ISOs
+      ansible.builtin.set_fact:
+        vms_with_mounted_isos: "{{ vm_cdrom_report | selectattr('mounted_iso_count', '>', 0) | list }}"
+
+    - name: Display pre-removal summary
+      ansible.builtin.debug:
+        msg:
+          - "=== Pre-Removal Summary ==="
+          - "Total VMs scanned: {{ vm_cdrom_report | length }}"
+          - "VMs with CD-ROM devices: {{ vm_cdrom_report | selectattr('cdrom_count', '>', 0) | list | length }}"
+          - "VMs with mounted ISOs: {{ vms_with_mounted_isos | length }}"
+          - "Mode: {{ 'DRY RUN' if dry_run_mode else 'LIVE REMOVAL' }}"
+
+    - name: Display VMs with mounted ISOs
+      loop: "{{ vms_with_mounted_isos }}"
+      loop_control:
+        label: "{{ item.vm_name }}"
+      when: cdrom_removal_config.show_details | default(true)
+      ansible.builtin.debug:
+        msg:
+          - "VM: {{ item.vm_name }} ({{ item.vm_id }})"
+          - "  Power State: {{ item.power_state }}"
+          - "  Mounted ISOs: {{ item.mounted_iso_count }}"
+          - "  ISO Files:"
+          - "{{ item.mounted_cdroms | map(attribute='backing.iso_file') | list | to_nice_yaml }}"
+
+    - name: Remove mounted ISOs from CD-ROM devices (DRY RUN)
+      loop: "{{ vms_with_mounted_isos | subelements('mounted_cdroms') }}"
+      loop_control:
+        label: "{{ item.0.vm_name }} - Device {{ item.1.label | default('CD/DVD') }}"
+      when: dry_run_mode
+      ansible.builtin.debug:
+        msg:
+          - "DRY RUN: Would remove ISO from {{ item.0.vm_name }}"
+          - "  Device: {{ item.1.label | default('CD/DVD Drive') }}"
+          - "  Current ISO: {{ item.1.backing.iso_file }}"
+          - "  Device ID: {{ item.1.cdrom }}"
+
+    - name: Remove mounted ISOs from CD-ROM devices (LIVE)
+      register: cdrom_removal_results
+      loop: "{{ vms_with_mounted_isos | subelements('mounted_cdroms') }}"
+      loop_control:
+        label: "{{ item.0.vm_name }} - Device {{ item.1.label | default('CD/DVD') }}"
+      when: not dry_run_mode
+      failed_when: false
+      delegate_to: localhost
+      vmware.vmware_rest.vcenter_vm_hardware_cdrom:
+        vm: "{{ item.0.vm_id }}"
+        cdrom: "{{ item.1.cdrom }}"
+        backing:
+          type: "CLIENT_DEVICE"
+        start_connected: false
+
+    - name: Process removal results
+      loop: "{{ cdrom_removal_results.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.0.vm_name if item.item is defined else 'Unknown VM' }}"
+      when: 
+        - not dry_run_mode
+        - item.item is defined
+      ansible.builtin.set_fact:
+        removal_report: >-
+          {{
+            removal_report + [
+              {
+                'vm_name': item.item.0.vm_name,
+                'vm_id': item.item.0.vm_id,
+                'device_label': item.item.1.label | default('CD/DVD Drive'),
+                'device_id': item.item.1.cdrom,
+                'previous_iso': item.item.1.backing.iso_file,
+                'removal_successful': not item.failed,
+                'error_message': item.msg | default('') if item.failed else '',
+                'timestamp': report_timestamp
+              }
+            ]
+          }}
+
+    - name: Display removal summary
+      when: not dry_run_mode
+      ansible.builtin.debug:
+        msg:
+          - "=== Removal Results Summary ==="
+          - "Total removal attempts: {{ removal_report | length }}"
+          - "Successful removals: {{ removal_report | selectattr('removal_successful', 'equalto', true) | list | length }}"
+          - "Failed removals: {{ removal_report | selectattr('removal_successful', 'equalto', false) | list | length }}"
+
+    - name: Display failed removals
+      loop: "{{ removal_report | selectattr('removal_successful', 'equalto', false) | list }}"
+      loop_control:
+        label: "{{ item.vm_name }}"
+      when: 
+        - not dry_run_mode
+        - removal_report | selectattr('removal_successful', 'equalto', false) | list | length > 0
+      ansible.builtin.debug:
+        msg:
+          - "FAILED: {{ item.vm_name }} - {{ item.device_label }}"
+          - "  Error: {{ item.error_message }}"
+          - "  Previous ISO: {{ item.previous_iso }}"
+
+    - name: Generate removal report (table format)
+      vars:
+        report_data: "{{ removal_report if not dry_run_mode else [] }}"
+        dry_run_data: "{{ vms_with_mounted_isos if dry_run_mode else [] }}"
+        report_meta:
+          timestamp: "{{ report_timestamp }}"
+          mode: "{{ 'dry_run' if dry_run_mode else 'live_removal' }}"
+          total_vms_scanned: "{{ vm_cdrom_report | length }}"
+          vms_with_mounted_isos: "{{ vms_with_mounted_isos | length }}"
+          successful_removals: "{{ removal_report | selectattr('removal_successful', 'equalto', true) | list | length if not dry_run_mode else 0 }}"
+          failed_removals: "{{ removal_report | selectattr('removal_successful', 'equalto', false) | list | length if not dry_run_mode else 0 }}"
+      delegate_to: localhost
+      when: cdrom_removal_config.generate_report | default(true)
+      ansible.builtin.template:
+        src: cdrom_removal_report.j2
+        dest: "{{ cdrom_removal_config.report_file | default(playbook_dir + '/../reports/vmware_cdrom_removal_report_' + ansible_date_time.epoch + '.txt') }}"
+
+    - name: Generate JSON removal report
+      delegate_to: localhost
+      when: 
+        - cdrom_removal_config.generate_report | default(true)
+        - cdrom_removal_config.output_format | default('table') == 'json'
+      ansible.builtin.copy:
+        content: |
+          {
+            "report_metadata": {
+              "generated_at": "{{ report_timestamp }}",
+              "mode": "{{ 'dry_run' if dry_run_mode else 'live_removal' }}",
+              "total_vms_scanned": {{ vm_cdrom_report | length }},
+              "vms_with_mounted_isos": {{ vms_with_mounted_isos | length }},
+              "successful_removals": {{ removal_report | selectattr('removal_successful', 'equalto', true) | list | length if not dry_run_mode else 0 }},
+              "failed_removals": {{ removal_report | selectattr('removal_successful', 'equalto', false) | list | length if not dry_run_mode else 0 }}
+            },
+            "removal_details": {{ removal_report | default([]) | to_nice_json }},
+            "dry_run_candidates": {{ vms_with_mounted_isos | default([]) | to_nice_json if dry_run_mode else [] }}
+          }
+        dest: "{{ cdrom_removal_config.report_file | default(playbook_dir + '/../reports/vmware_cdrom_removal_report_' + ansible_date_time.epoch + '.txt') | regex_replace('\\.(txt|yaml)$', '.json') }}"
+
+    - name: Display report file location
+      when: cdrom_removal_config.generate_report | default(true)
+      ansible.builtin.debug:
+        msg:
+          - "Report saved to: {{ cdrom_removal_config.report_file | default(playbook_dir + '/../reports/vmware_cdrom_removal_report_' + ansible_date_time.epoch + '.txt') }}"
+          - "Mode: {{ 'DRY RUN - No changes made' if dry_run_mode else 'LIVE REMOVAL - Changes applied' }}"
+
+    - name: Final safety reminder
+      when: not dry_run_mode
+      ansible.builtin.debug:
+        msg:
+          - "=== IMPORTANT ==="
+          - "CD-ROM ISOs have been disconnected from virtual machines"
+          - "CD-ROM hardware devices remain attached to VMs"
+          - "VMs may need to be rebooted to recognize the changes"
+          - "Check the generated report for full details"
