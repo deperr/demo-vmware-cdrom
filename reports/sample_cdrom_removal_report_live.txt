@@ -1,0 +1,76 @@
+VMware CD-ROM Removal Report
+===========================
+Generated: 2024-01-15 14:22:18 UTC
+vCenter: vcenter-prod-01.company.local
+Mode: LIVE_REMOVAL
+
+Summary:
+--------
+Total VMs Scanned: 87
+VMs with Mounted ISOs: 8
+Successful Removals: 7
+Failed Removals: 1
+
+Live Removal Results:
+--------------------
+VM: web-server-01 (vm-1001)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore1] /iso/ubuntu-22.04.3-live-server-amd64.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:18:32 UTC
+
+VM: test-vm-07 (vm-2045)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore3] /iso/centos-stream9-minimal.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:18:45 UTC
+
+VM: backup-server-02 (vm-1008)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore4] /iso/veeam_backup_replication.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:19:01 UTC
+
+VM: monitoring-vm-01 (vm-2101)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore2] /iso/prometheus_grafana_installer.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:19:15 UTC
+
+VM: mail-server-primary (vm-1025)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore3] /iso/exchange_server_2019.iso
+  Status: FAILED
+  Error: VM is locked by another operation (snapshot in progress)
+  Timestamp: 2024-01-15 14:19:28 UTC
+
+VM: jenkins-build-agent-03 (vm-4015)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore1] /iso/docker_ce_installer.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:19:42 UTC
+
+VM: file-server-02 (vm-1033)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore2] /iso/windows_server_2022_datacenter.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:19:55 UTC
+
+VM: kubernetes-master-02 (vm-7008)
+  Device: CD/DVD Drive 1
+  Previous ISO: [datastore3] /iso/kubernetes_installer_v1.28.iso
+  Status: SUCCESS
+  Timestamp: 2024-01-15 14:20:08 UTC
+
+Failed Removals Summary:
+-----------------------
+- mail-server-primary: VM is locked by another operation (snapshot in progress)
+
+Post-Removal Notes:
+------------------
+- CD-ROM hardware devices remain attached to VMs
+- ISO files have been disconnected from CD-ROM drives
+- VMs may require reboot to recognize changes
+- Original ISO files remain on storage (not deleted)
+
+Report completed at 2024-01-15 14:22:18 UTC

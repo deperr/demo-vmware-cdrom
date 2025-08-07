@@ -1,0 +1,197 @@
+VMware CD-ROM Drive Report
+==========================
+Generated: 2024-01-15 09:15:32 UTC
+vCenter: vcenter-prod-01.company.local
+
+Summary:
+--------
+Total VMs Scanned: 87
+VMs with CD-ROM devices: 65
+VMs with mounted ISOs: 12
+
+Detailed Results:
+-----------------
+VM Name: web-server-01
+  VM ID: vm-1001
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/ubuntu-22.04.3-live-server-amd64.iso
+  
+VM Name: web-server-02
+  VM ID: vm-1002
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: db-server-01
+  VM ID: vm-1010
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: db-server-03
+  VM ID: vm-1015
+  Power State: poweredOff
+  CD-ROM Devices: 2
+  Has Mounted ISO: Yes
+  Device Details: 2 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore2] /iso/windows_server_2022.iso
+    - Device 2: CD/DVD Drive 2
+      ISO File: [datastore2] /iso/vmware-tools.iso
+  
+VM Name: app-server-05
+  VM ID: vm-1020
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: test-vm-07
+  VM ID: vm-2045
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore3] /iso/centos-stream9-minimal.iso
+  
+VM Name: dev-workstation-12
+  VM ID: vm-3021
+  Power State: suspended
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/debian-12.2.0-amd64-netinst.iso
+  
+VM Name: backup-server-02
+  VM ID: vm-1008
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore4] /iso/veeam_backup_replication.iso
+  
+VM Name: dns-server-01
+  VM ID: vm-1050
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: legacy-app-vm
+  VM ID: vm-5012
+  Power State: poweredOff
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/rhel-9.3-x86_64-boot.iso
+  
+VM Name: monitoring-vm-01
+  VM ID: vm-2101
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore2] /iso/prometheus_grafana_installer.iso
+  
+VM Name: mail-server-primary
+  VM ID: vm-1025
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore3] /iso/exchange_server_2019.iso
+  
+VM Name: proxy-server-01
+  VM ID: vm-1040
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: jenkins-build-agent-03
+  VM ID: vm-4015
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/docker_ce_installer.iso
+  
+VM Name: security-scanner-vm
+  VM ID: vm-6001
+  Power State: poweredOff
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore4] /iso/nessus_security_scanner.iso
+  
+VM Name: file-server-02
+  VM ID: vm-1033
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore2] /iso/windows_server_2022_datacenter.iso
+  
+VM Name: kubernetes-master-01
+  VM ID: vm-7005
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: kubernetes-master-02
+  VM ID: vm-7008
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: Yes
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+      ISO File: [datastore3] /iso/kubernetes_installer_v1.28.iso
+  
+VM Name: kubernetes-worker-01
+  VM ID: vm-7010
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: kubernetes-worker-02
+  VM ID: vm-7012
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+VM Name: load-balancer-01
+  VM ID: vm-1060
+  Power State: poweredOn
+  CD-ROM Devices: 1
+  Has Mounted ISO: No
+  Device Details: 1 device(s) found
+    - Device 1: CD/DVD Drive 1
+  
+
+Report completed at 2024-01-15 09:15:32 UTC

@@ -1,0 +1,122 @@
+VMware CD-ROM Removal Report
+===========================
+Generated: 2024-01-15 10:30:45 UTC
+vCenter: vcenter-prod-01.company.local
+Mode: DRY_RUN
+
+Summary:
+--------
+Total VMs Scanned: 87
+VMs with Mounted ISOs: 12
+
+DRY RUN Results - No Changes Made:
+----------------------------------
+The following VMs have mounted CD-ROM ISOs that would be removed:
+
+VM: web-server-01 (vm-1001)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/ubuntu-22.04.3-live-server-amd64.iso
+      Device ID: 4000
+
+VM: db-server-03 (vm-1015)
+  Power State: poweredOff
+  Mounted ISO Count: 2
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore2] /iso/windows_server_2022.iso
+      Device ID: 4000
+    - Device: CD/DVD Drive 2
+      ISO File: [datastore2] /iso/vmware-tools.iso
+      Device ID: 4001
+
+VM: test-vm-07 (vm-2045)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore3] /iso/centos-stream9-minimal.iso
+      Device ID: 4000
+
+VM: dev-workstation-12 (vm-3021)
+  Power State: suspended
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/debian-12.2.0-amd64-netinst.iso
+      Device ID: 4000
+
+VM: backup-server-02 (vm-1008)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore4] /iso/veeam_backup_replication.iso
+      Device ID: 4000
+
+VM: legacy-app-vm (vm-5012)
+  Power State: poweredOff
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/rhel-9.3-x86_64-boot.iso
+      Device ID: 4000
+
+VM: monitoring-vm-01 (vm-2101)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore2] /iso/prometheus_grafana_installer.iso
+      Device ID: 4000
+
+VM: mail-server-primary (vm-1025)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore3] /iso/exchange_server_2019.iso
+      Device ID: 4000
+
+VM: jenkins-build-agent-03 (vm-4015)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore1] /iso/docker_ce_installer.iso
+      Device ID: 4000
+
+VM: security-scanner-vm (vm-6001)
+  Power State: poweredOff
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore4] /iso/nessus_security_scanner.iso
+      Device ID: 4000
+
+VM: file-server-02 (vm-1033)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore2] /iso/windows_server_2022_datacenter.iso
+      Device ID: 4000
+
+VM: kubernetes-master-02 (vm-7008)
+  Power State: poweredOn
+  Mounted ISO Count: 1
+  ISO Files to Remove:
+    - Device: CD/DVD Drive 1
+      ISO File: [datastore3] /iso/kubernetes_installer_v1.28.iso
+      Device ID: 4000
+
+Next Steps:
+----------
+- Review the above list of VMs with mounted ISOs
+- Set dry_run: false in configuration to perform actual removal
+- Ensure VMs are in appropriate power state for changes
+- Consider VM downtime requirements
+
+Report completed at 2024-01-15 10:30:45 UTC
