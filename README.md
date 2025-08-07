@@ -5,7 +5,7 @@ This Ansible project provides automation for checking VMware vSphere virtual mac
 ## Project Structure
 
 ```
-test_demo-vmware-cdrom/
+demo-vmware-cdrom/
 ├── ansible.cfg                          # Ansible configuration with certified collections
 ├── ansible-navigator.yml                # Navigator configuration for EE execution
 ├── site.yml                            # Main playbook entry point
