@@ -115,7 +115,7 @@ VM: kubernetes-master-02 (vm-7008)
 Next Steps:
 ----------
 - Review the above list of VMs with mounted ISOs
-- Set dry_run: false in configuration to perform actual removal
+- Run without --check flag to perform actual removal
 - Ensure VMs are in appropriate power state for changes
 - Consider VM downtime requirements
 
