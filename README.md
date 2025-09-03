@@ -184,6 +184,7 @@ execution_timestamp: # ISO 8601 timestamp
 The playbook automatically generates detailed reports and transfers them to `server1.test.com:/tmp/`. 
 
 ### Report Features
+- **Jinja2 templating**: Clean, maintainable template-based report generation
 - **Timestamped filenames**: `vmware_cdrom_detachment_YYYY-MM-DD_HH-MM-SSZ.txt`
 - **Comprehensive details**: VM information, CD-ROM device details, operation results
 - **Error tracking**: Detailed failure information and troubleshooting data
@@ -201,6 +202,12 @@ The playbook automatically generates detailed reports and transfers them to `ser
 - Configurable SSH user (default: `ansible`)
 - File permissions set to 0644
 - Automatic cleanup of temporary local files
+
+### Report Customization
+- **Template-based**: Modify `templates/cdrom_detachment_report.j2` to customize report format
+- **Flexible formatting**: Full Jinja2 templating capabilities for custom layouts
+- **Maintainable**: Separate template file for easy updates and version control
+- **Reusable**: Template can be shared across multiple playbooks
 
 ## 📊 **Output Examples**
 
@@ -319,6 +326,7 @@ debug_mode: true
 
 ### Files Structure
 - `playbooks_vmware/detach_cdrom.yml`: Main playbook for CD-ROM detachment
+- `templates/cdrom_detachment_report.j2`: Jinja2 template for report generation
 - `requirements.yml`: Collection dependencies
 - `ansible.cfg`: Configuration file (for local development)
 - `README.md`: Documentation
