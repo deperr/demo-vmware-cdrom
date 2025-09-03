@@ -1,0 +1,294 @@
+---
+
+- name: Detach CD-ROM drives from VMware virtual machines
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    vcenter_validate_certs: true
+    report_only: false
+    
+    # Report server configuration
+    report_server_user: ansible
+    # report_server_key: /path/to/private/key (optional - uses default SSH key if not specified)
+    
+  module_defaults:
+    group/vmware.vmware_rest.all:
+      vcenter_hostname: "{{ vcenter_hostname }}"
+      vcenter_username: "{{ vcenter_username }}"  
+      vcenter_password: "{{ vcenter_password }}"
+      vcenter_validate_certs: "{{ vcenter_validate_certs }}"
+
+  tasks:
+    - name: Validate required VMware connection parameters
+      ansible.builtin.assert:
+        that:
+          - vcenter_hostname is defined
+          - vcenter_hostname | length > 0
+          - vcenter_username is defined
+          - vcenter_username | length > 0
+          - vcenter_password is defined
+          - vcenter_password | length > 0
+        fail_msg: "Required VMware connection parameters are missing. Ensure vcenter_hostname, vcenter_username, and vcenter_password are provided."
+        success_msg: "VMware connection parameters validated successfully"
+
+    - name: Get session information from vCenter
+      register: session_info
+      vmware.vmware_rest.vcenter_session:
+
+    - name: Display connection status
+      ansible.builtin.debug:
+        msg: "Successfully connected to vCenter: {{ vcenter_hostname }}"
+
+    - name: Retrieve all virtual machines from vCenter
+      register: all_vms
+      vmware.vmware_rest.vcenter_vm_info:
+
+    - name: Display total VM count
+      ansible.builtin.debug:
+        msg: "Found {{ all_vms.value | length }} virtual machines in vCenter"
+
+    - name: Initialize variables for CD-ROM tracking
+      ansible.builtin.set_fact:
+        vms_with_cdrom: []
+        cdrom_detachment_results: []
+        current_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+
+    - name: Check each VM for CD-ROM devices
+      register: vm_cdrom_check
+      loop: "{{ all_vms.value }}"
+      loop_control:
+        loop_var: vm_item
+        label: "{{ vm_item.name }}"
+      vmware.vmware_rest.vcenter_vm_hardware_cdrom_info:
+        vm: "{{ vm_item.vm }}"
+
+    - name: Identify VMs with CD-ROM devices attached
+      when: 
+        - vm_cdrom_check.results is defined
+        - cdrom_result.value is defined
+        - cdrom_result.value | length > 0
+      loop: "{{ vm_cdrom_check.results }}"
+      loop_control:
+        loop_var: cdrom_result
+        label: "{{ cdrom_result.vm_item.name }}"
+      ansible.builtin.set_fact:
+        vms_with_cdrom: "{{ vms_with_cdrom + [{'vm_id': cdrom_result.vm_item.vm, 'vm_name': cdrom_result.vm_item.name, 'power_state': cdrom_result.vm_item.power_state, 'cdrom_devices': cdrom_result.value}] }}"
+
+    - name: Display VMs with CD-ROM devices
+      ansible.builtin.debug:
+        msg: 
+          - "Found {{ vms_with_cdrom | length }} VMs with CD-ROM devices attached"
+          - "VMs with CD-ROM: {{ vms_with_cdrom | map(attribute='vm_name') | list }}"
+
+    - name: Create detailed CD-ROM inventory
+      when: vms_with_cdrom | length > 0
+      loop: "{{ vms_with_cdrom }}"
+      loop_control:
+        loop_var: vm_with_cdrom
+        label: "{{ vm_with_cdrom.vm_name }}"
+      ansible.builtin.debug:
+        msg:
+          - "VM: {{ vm_with_cdrom.vm_name }} ({{ vm_with_cdrom.vm_id }})"
+          - "Power State: {{ vm_with_cdrom.power_state }}"
+          - "CD-ROM Devices: {{ vm_with_cdrom.cdrom_devices | length }}"
+          - "Device Details: {{ vm_with_cdrom.cdrom_devices }}"
+
+    - name: Kick off the process CD-ROM detachment
+      when: 
+        - vms_with_cdrom | length > 0
+        - not report_only | bool
+      block:
+        - name: Detach CD-ROM devices from virtual machines
+          register: detachment_result
+          failed_when: false
+          when: not ansible_check_mode
+          loop: "{{ vms_with_cdrom | subelements('cdrom_devices') }}"
+          loop_control:
+            loop_var: cdrom_item
+            label: "{{ cdrom_item.0.vm_name }} - CDROM {{ cdrom_item.1.cdrom }}"
+          vmware.vmware_rest.vcenter_vm_hardware_cdrom:
+            vm: "{{ cdrom_item.0.vm_id }}"
+            cdrom: "{{ cdrom_item.1.cdrom }}"
+            state: absent
+
+        - name: Process detachment results
+          when: 
+            - detachment_result is defined
+            - detachment_result.results is defined
+          loop: "{{ detachment_result.results }}"
+          loop_control:
+            loop_var: result_item
+            label: "{{ result_item.cdrom_item.0.vm_name }}"
+          ansible.builtin.set_fact:
+            cdrom_detachment_results: "{{ cdrom_detachment_results + [{'vm_name': result_item.cdrom_item.0.vm_name, 'vm_id': result_item.cdrom_item.0.vm_id, 'cdrom_id': result_item.cdrom_item.1.cdrom, 'status': 'success' if result_item.failed == false else 'failed', 'error': result_item.msg | default('') }] }}"
+
+        - name: Display detachment results summary
+          ansible.builtin.debug:
+            msg:
+              - "CD-ROM Detachment Summary:"
+              - "Total devices processed: {{ cdrom_detachment_results | length }}"
+              - "Successful detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'success') | list | length }}"
+              - "Failed detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list | length }}"
+
+        - name: Display failed detachments (if any)
+          when: cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list | length > 0
+          ansible.builtin.debug:
+            msg: "Failed detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list }}"
+
+    - name: Display check mode information
+      when: ansible_check_mode
+      ansible.builtin.debug:
+        msg:
+          - "CHECK MODE: No changes will be made"
+          - "{{ vms_with_cdrom | length }} VMs would have CD-ROM devices detached"
+          - "Total CD-ROM devices that would be detached: {{ vms_with_cdrom | map(attribute='cdrom_devices') | map('length') | sum }}"
+
+    - name: Display report-only information  
+      when: report_only | bool
+      ansible.builtin.debug:
+        msg:
+          - "REPORT ONLY MODE: No changes will be made"
+          - "This run identified VMs with CD-ROM devices for planning purposes"
+
+    - name: Generate execution report
+      ansible.builtin.set_fact:
+        execution_report:
+          timestamp: "{{ current_timestamp }}"
+          vcenter_host: "{{ vcenter_hostname }}"
+          mode: "{{ 'check_mode' if ansible_check_mode else ('report_only' if report_only | bool else 'execute') }}"
+          total_vms_scanned: "{{ all_vms.value | length }}"
+          vms_with_cdrom_count: "{{ vms_with_cdrom | length }}"
+          vms_with_cdrom_details: "{{ vms_with_cdrom }}"
+          detachment_results: "{{ cdrom_detachment_results | default([]) }}"
+          summary:
+            total_cdroms_found: "{{ vms_with_cdrom | map(attribute='cdrom_devices') | map('length') | sum }}"
+            successful_detachments: "{{ cdrom_detachment_results | selectattr('status', 'equalto', 'success') | list | length | default(0) }}"
+            failed_detachments: "{{ cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list | length | default(0) }}"
+
+    - name: Save execution report for AAP workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          cdrom_detachment_report: "{{ execution_report }}"
+          vms_processed_count: "{{ all_vms.value | length }}"
+          vms_with_cdrom_count: "{{ vms_with_cdrom | length }}"
+          total_cdroms_detached: "{{ cdrom_detachment_results | selectattr('status', 'equalto', 'success') | list | length | default(0) }}"
+          execution_mode: "{{ 'check_mode' if ansible_check_mode else ('report_only' if report_only | bool else 'execute') }}"
+          execution_timestamp: "{{ current_timestamp }}"
+        per_host: false
+        aggregate: true
+
+    - name: Generate detailed report content for file output
+      ansible.builtin.set_fact:
+        report_content: |
+          ================================================================================
+          VMware CD-ROM Detachment Report
+          ================================================================================
+          
+          Execution Details:
+          ------------------
+          Timestamp: {{ current_timestamp }}
+          vCenter Host: {{ vcenter_hostname }}
+          Execution Mode: {{ 'CHECK MODE' if ansible_check_mode else ('REPORT ONLY' if report_only | bool else 'EXECUTE') }}
+          
+          Summary:
+          --------
+          Total VMs Scanned: {{ all_vms.value | length }}
+          VMs with CD-ROM Devices: {{ vms_with_cdrom | length }}
+          Total CD-ROM Devices Found: {{ vms_with_cdrom | map(attribute='cdrom_devices') | map('length') | sum }}
+          Successful Detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'success') | list | length | default(0) }}
+          Failed Detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list | length | default(0) }}
+          
+          {% if vms_with_cdrom | length > 0 %}
+          Detailed VM Information:
+          ------------------------
+          {% for vm in vms_with_cdrom %}
+          VM Name: {{ vm.vm_name }}
+          VM ID: {{ vm.vm_id }}
+          Power State: {{ vm.power_state }}
+          CD-ROM Devices Count: {{ vm.cdrom_devices | length }}
+          {% for cdrom in vm.cdrom_devices %}
+            - CD-ROM ID: {{ cdrom.cdrom }}
+            - Type: {{ cdrom.type | default('N/A') }}
+            - State: {{ cdrom.state | default('N/A') }}
+          {% endfor %}
+          
+          {% endfor %}
+          {% endif %}
+          
+          {% if cdrom_detachment_results | length > 0 %}
+          Detachment Results:
+          -------------------
+          {% for result in cdrom_detachment_results %}
+          VM: {{ result.vm_name }} ({{ result.vm_id }})
+          CD-ROM ID: {{ result.cdrom_id }}
+          Status: {{ result.status | upper }}
+          {% if result.error %}
+          Error: {{ result.error }}
+          {% endif %}
+          
+          {% endfor %}
+          {% endif %}
+          
+          {% if cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list | length > 0 %}
+          Failed Operations:
+          ------------------
+          {% for failed in cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list %}
+          VM: {{ failed.vm_name }}
+          CD-ROM ID: {{ failed.cdrom_id }}
+          Error: {{ failed.error }}
+          
+          {% endfor %}
+          {% endif %}
+          
+          ================================================================================
+          Report generated by VMware CD-ROM Detachment Playbook
+          ================================================================================
+
+    - name: Generate report filename with timestamp
+      ansible.builtin.set_fact:
+        report_filename: "vmware_cdrom_detachment_{{ current_timestamp | regex_replace(':', '-') | regex_replace('T', '_') }}.txt"
+        local_report_path: "/tmp/{{ report_filename }}"
+
+    - name: Create local report file
+      ansible.builtin.copy:
+        content: "{{ report_content }}"
+        dest: "{{ local_report_path }}"
+        mode: '0644'
+      delegate_to: localhost
+
+    - name: Transfer report to server1.test.com
+      ansible.builtin.copy:
+        src: "{{ local_report_path }}"
+        dest: "/tmp/{{ report_filename }}"
+        mode: '0644'
+        backup: yes
+      delegate_to: server1.test.com
+      vars:
+        ansible_user: "{{ report_server_user | default('ansible') }}"
+        ansible_ssh_private_key_file: "{{ report_server_key | default(omit) }}"
+
+    - name: Clean up local report file
+      ansible.builtin.file:
+        path: "{{ local_report_path }}"
+        state: absent
+      delegate_to: localhost
+
+    - name: Display report transfer status
+      ansible.builtin.debug:
+        msg:
+          - "Report successfully generated and transferred"
+          - "Remote location: server1.test.com:/tmp/{{ report_filename }}"
+          - "Report contains detailed execution results and VM information"
+
+    - name: Final execution summary
+      ansible.builtin.debug:
+        msg:
+          - "=== VMware CD-ROM Detachment Playbook Complete ==="
+          - "Execution Mode: {{ 'CHECK MODE' if ansible_check_mode else ('REPORT ONLY' if report_only | bool else 'EXECUTE') }}"
+          - "Total VMs Scanned: {{ all_vms.value | length }}"
+          - "VMs with CD-ROM: {{ vms_with_cdrom | length }}"
+          - "Total CD-ROM Devices Found: {{ vms_with_cdrom | map(attribute='cdrom_devices') | map('length') | sum }}"
+          - "Successful Detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'success') | list | length | default(0) }}"
+          - "Failed Detachments: {{ cdrom_detachment_results | selectattr('status', 'equalto', 'failed') | list | length | default(0) }}"
+          - "Timestamp: {{ current_timestamp }}"

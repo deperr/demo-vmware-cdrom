@@ -1,0 +1,9 @@
+---
+
+collections:
+  - name: vmware.vmware_rest
+    version: ">=2.3.1"
+    source: https://console.redhat.com/api/automation-hub/content/validated/
+
+  - name: ansible.builtin
+    version: ">=2.14.0"
